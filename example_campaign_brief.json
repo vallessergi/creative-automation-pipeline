@@ -1,0 +1,15 @@
+{
+  "products": [
+    {
+      "name": "Water",
+      "description": "Pure spring water in eco-friendly bottles. Refreshing, clean taste with natural minerals. Perfect hydration for active lifestyles and health-conscious consumers."
+    },
+    {
+      "name": "Coca Cola", 
+      "description": "Classic Coca-Cola with its iconic taste and refreshing fizz. The original cola drink that brings people together and adds happiness to every moment."
+    }
+  ],
+  "target_region": "Global",
+  "target_audience": "Young adults and families, ages 18-45, active lifestyle, seeking refreshing beverages for daily hydration and social moments",
+  "campaign_message": "Stay refreshed, stay connected. Whether you choose pure hydration or classic taste, we've got your perfect moment covered."
+}

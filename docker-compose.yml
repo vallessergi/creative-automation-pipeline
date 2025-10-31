@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    image: home-assestment-backend:latest
+    container_name: home_assestment_backend
+    ports: ["8000:8000"]
+    environment:
+      DB_PATH: /data/rag_docs.sqlite3
+      FAISS_PATH: /data/faiss.index
+      EMBED_MODEL: sentence-transformers/all-MiniLM-L6-v2
+    volumes:
+      - ragdata:/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: home-assesment-frontend:latest
+    container_name: home_assestment_frontend
+    depends_on: [backend]
+    ports: ["3000:80"]
+    restart: unless-stopped
+
+volumes:
+  ragdata:
