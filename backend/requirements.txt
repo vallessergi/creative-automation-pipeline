@@ -1,0 +1,25 @@
+# Framework
+fastapi==0.120.2
+uvicorn==0.30.6
+python-multipart==0.0.9
+
+# Data validation and models
+pydantic==2.9.2
+
+# Logging
+loguru==0.7.2
+
+# Image processing and generation
+Pillow==10.4.0
+opencv-python==4.10.0.84
+requests==2.32.3
+
+# GenAI image generation
+openai==1.51.2
+stability-sdk==0.8.4
+
+# Text rendering and fonts
+fonttools==4.54.1
+
+# Utilities
+pathlib2==2.3.7
