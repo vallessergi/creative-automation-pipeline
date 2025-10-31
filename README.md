@@ -196,7 +196,7 @@ curl "http://localhost:8000/assets/info"
 - Background tasks for campaign generation
 - Non-blocking API responses
 - Real-time status tracking with detailed logs
-- Comprehensive error handling and recovery
+- Error handling and recovery
 
 ## Assumptions and Limitations
 
@@ -286,12 +286,6 @@ curl "http://localhost:8000/assets/info"
    - **Cause**: Static rule implementation for demonstration purposes
    - **Note**: This is expected behavior in the current proof-of-concept
 
-### Debug Mode
-Set environment variable for detailed logging:
-```bash
-export LOG_LEVEL=DEBUG
-python app.py
-```
 
 ## Development
 
@@ -330,13 +324,6 @@ python app.py
     ├── vite.config.js        # Build configuration
     └── nginx.conf            # Production web server config
 ```
-
-### Adding New Features
-
-1. **New Aspect Ratios**: Modify `aspect_ratios` dict in `creative_generator.py`
-2. **New GenAI Providers**: Extend `image_generator.py` with new APIs
-3. **Brand Compliance**: Add validation functions to pipeline
-4. **Custom Fonts**: Update text rendering in `creative_generator.py`
 
 ## License
 
