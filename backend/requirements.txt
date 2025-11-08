@@ -11,15 +11,18 @@ loguru==0.7.2
 
 # Image processing and generation
 Pillow==10.4.0
-opencv-python==4.10.0.84
 requests==2.32.3
 
 # GenAI image generation
 openai==1.51.2
 stability-sdk==0.8.4
+replicate==0.34.1
 
 # Text rendering and fonts
 fonttools==4.54.1
+
+# AI/LLM
+groq==0.13.0
 
 # Utilities
 pathlib2==2.3.7

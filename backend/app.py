@@ -6,7 +6,7 @@ from typing import List, Dict
 import uuid
 from pathlib import Path
 from loguru import logger
-from utils import AssetManager, CreativeGenerator, MetricsManager, ContentModerator
+from utils import AssetManager, CreativeGenerator, MetricsManager, ContentModerator, ImageGenerator
 
 app = FastAPI(title="Creative Automation Pipeline", version="1.0.0")
 
@@ -19,22 +19,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize components
+# API Keys - Replace with actual API keys
+GROQ_API_KEY = "GROQ_API_KEY"
+REPLICATE_API_TOKEN = "REPLICATE_API_TOKEN"
+
 asset_manager = AssetManager()
-creative_generator = CreativeGenerator()
 metrics_manager = MetricsManager()
-content_moderator = ContentModerator()
+
+image_generator = ImageGenerator(replicate_api_token=REPLICATE_API_TOKEN)
+content_moderator = ContentModerator(groq_api_key=GROQ_API_KEY)
+
+creative_generator = CreativeGenerator(image_generator=image_generator, asset_manager=asset_manager)
 
 # Global storage for campaign results
 campaign_results: Dict[str, dict] = {}
 
-# Basic models
+
 class Product(BaseModel):
     name: str
     description: str
 
 class CampaignBrief(BaseModel):
-    products: List[Product]  # At least 2 products required
+    products: List[Product]
     target_region: str
     target_audience: str
     campaign_message: str
@@ -121,15 +127,12 @@ async def upload_product_image(
 ):
     """Upload an image for a product to be stored in assets/product_name/"""
     try:
-        # Validate product name
         if not product_name.strip():
             raise HTTPException(status_code=400, detail="Product name cannot be empty")
         
-        # Validate file
         if not image.filename:
             raise HTTPException(status_code=400, detail="No file provided")
         
-        # Save the uploaded image
         result = asset_manager.save_uploaded_image(product_name, image)
         
         logger.info(f"Successfully uploaded image for product '{product_name}': {result['filename']}")
@@ -157,16 +160,13 @@ async def upload_product_image(
 async def generate_campaign(brief: CampaignBrief, background_tasks: BackgroundTasks):
     """Generate creative campaign from JSON brief"""
     
-    # Validate minimum 2 products
     if len(brief.products) < 2:
         raise HTTPException(status_code=400, detail="At least 2 products are required")
     
-    # Generate unique campaign ID
     campaign_id = str(uuid.uuid4())[:8]
     
     logger.info(f"Processing campaign {campaign_id} for {len(brief.products)} products")
     
-    # Initialize campaign result
     campaign_results[campaign_id] = {
         "campaign_id": campaign_id,
         "status": "processing",
@@ -197,7 +197,6 @@ async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
             result["status"] = "failed"
             result["logs"].append(f"COMPLIANCE FAILURE: {compliance_reason}")
             
-            # Save failed campaign metrics with compliance reason
             metrics_manager.save_campaign_metrics(
                 campaign_id=campaign_id,
                 campaign_brief=brief.dict(),
@@ -212,7 +211,6 @@ async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
         result["logs"].append("Content compliance check passed")
         result["logs"].append("Starting creative generation")
         
-        # Process each product
         for product in brief.products:
             result["logs"].append(f"Processing product: {product.name}")
             
@@ -227,11 +225,9 @@ async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
                 result["logs"].append(f"❌ No existing assets found for {product.name} - WILL GENERATE")
                 asset_status = "generated"
             
-            # Create product-specific output directory
             product_dir = Path("output") / campaign_id / product.name.lower().replace(" ", "_")
             product_dir.mkdir(parents=True, exist_ok=True)
             
-            # Generate creatives for all aspect ratios
             creatives = creative_generator.generate_creative_set(
                 product_name=product.name,
                 product_description=product.description,
@@ -253,32 +249,9 @@ async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
             else:
                 result["logs"].append(f"🤖 Generated new assets for {product.name} - {len(creatives)} creatives created")
         
-        # Brand compliance check after generation
-        result["logs"].append("Checking brand compliance (background colors)")
-        brand_compliant, brand_reason = content_moderator.check_brand_compliance(campaign_id)
-        
-        if not brand_compliant:
-            result["status"] = "failed"
-            result["logs"].append(f"BRAND COMPLIANCE FAILURE: {brand_reason}")
-            
-            # Save failed campaign metrics with brand compliance reason
-            metrics_manager.save_campaign_metrics(
-                campaign_id=campaign_id,
-                campaign_brief=brief.dict(),
-                final_status="failed_brand_compliance",
-                product_metrics=result["creatives"],
-                reason=brand_reason
-            )
-            result["logs"].append("Campaign metrics saved")
-            
-            logger.error(f"Campaign {campaign_id} failed brand compliance: {brand_reason}")
-            return
-        
         result["status"] = "completed"
-        result["logs"].append("Brand compliance check passed")
         result["logs"].append("Campaign processing completed successfully")
         
-        # Save campaign metrics
         metrics_manager.save_campaign_metrics(
             campaign_id=campaign_id,
             campaign_brief=brief.dict(),

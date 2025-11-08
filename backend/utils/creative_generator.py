@@ -6,9 +6,9 @@ from .image_generator import ImageGenerator
 from .asset_manager import AssetManager
 
 class CreativeGenerator:
-    def __init__(self):
-        self.image_generator = ImageGenerator()
-        self.asset_manager = AssetManager()
+    def __init__(self, image_generator: ImageGenerator, asset_manager: AssetManager):
+        self.image_generator = image_generator
+        self.asset_manager = asset_manager
         self.aspect_ratios = {
             "1:1": (1080, 1080),      # Square - Instagram posts
             "9:16": (1080, 1920),     # Portrait - Instagram stories, TikTok
@@ -43,8 +43,8 @@ class CreativeGenerator:
         final_image.paste(resized, (x, y))
         return final_image
     
-    def add_text_overlay(self, 
-                        image: Image.Image, 
+    def add_text_overlay(self,
+                        image: Image.Image,
                         campaign_message: str,
                         product_name: str) -> Image.Image:
         """Add campaign message text overlay to image"""
@@ -70,7 +70,7 @@ class CreativeGenerator:
         
         # Add dark overlay at bottom for text
         overlay_height = height // 4
-        overlay_draw.rectangle([0, height - overlay_height, width, height], 
+        overlay_draw.rectangle([0, height - overlay_height, width, height],
                              fill=(0, 0, 0, 180))
         
         # Composite overlay onto image
@@ -136,7 +136,7 @@ class CreativeGenerator:
                 logger.error(f"Failed to load existing asset: {e}")
                 base_image = None
         else:
-            # No existing assets - generate a set of 3 placeholder images first
+            # No existing assets - generate a set of AI images first
             logger.info(f"No assets found for {product_name}, generating asset set")
             success = self.image_generator.generate_product_asset_set(product_name, product_description)
             
@@ -154,7 +154,7 @@ class CreativeGenerator:
                 logger.error(f"Failed to generate asset set for {product_name}")
                 return results
         
-        # Generate creatives for each aspect ratio
+        # Generate creatives for each aspect ratio using code-based text overlays
         for ratio_name, target_size in self.aspect_ratios.items():
             try:
                 # Resize to aspect ratio
