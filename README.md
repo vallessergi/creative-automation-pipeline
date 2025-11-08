@@ -1,18 +1,17 @@
 # Creative Automation Pipeline
 
-A full-stack automation system for generating social media creative assets, featuring a FastAPI backend and React frontend with AWS Cloudscape Design System.
+A full-stack automation system for generating social media creative assets, featuring AI-powered content moderation, GenAI image generation, and a modern React frontend with AWS Cloudscape Design System.
 
 ## Overview
 
 This system automates the creation of social media creatives by:
 - Providing a modern web interface for campaign management
 - Accepting campaign briefs through forms or JSON API
-- Performing content compliance validation before generation
+- **AI-powered content compliance validation** using Groq's Llama 3.1 model
+- **GenAI image generation** using Replicate's Flux model when assets are unavailable
 - Reusing existing assets when available
-- Creating placeholder images when assets are not available
 - Generating multiple aspect ratios (1:1, 9:16, 16:9)
 - Adding campaign message overlays with responsive text
-- Performing brand compliance checks after generation
 - Organizing outputs by product and aspect ratio
 - Tracking campaign metrics and performance
 
@@ -20,10 +19,19 @@ This system automates the creation of social media creatives by:
 
 ### Prerequisites
 - Docker & Docker Compose (required)
+- **Groq API Key** (free) - Get from [console.groq.com](https://console.groq.com/)
+- **Replicate API Token** - Get from [replicate.com](https://replicate.com/)
 
 ### Installation
 
-1. **Run the complete stack**:
+1. **Configure API Keys** in `backend/app.py`:
+```python
+# Replace with your actual API keys
+GROQ_API_KEY = "your_groq_api_key_here"
+REPLICATE_API_TOKEN = "your_replicate_api_token_here"
+```
+
+2. **Run the complete stack**:
 ```bash
 docker-compose up --build
 ```
@@ -37,18 +45,22 @@ The application will be available at:
 ### Web Interface (Recommended)
 
 1. **Access the frontend** at `http://localhost:3000`
-2. **Create Campaign Brief**:
+2. **Upload Assets (Optional)**:
+   - Navigate to the Upload tab
+   - Upload product images via the form interface
+   - System automatically organizes assets by product name
+3. **Create Campaign Brief**:
    - Fill out the campaign form with 2+ products
    - Add product names and descriptions
    - Set target region and audience
    - Enter your campaign message
-3. **Submit and Monitor**:
+4. **Submit and Monitor**:
    - Click "Generate Campaign"
-   - System performs content compliance validation
+   - **AI performs intelligent content compliance validation**
+   - System reuses uploaded assets or **generates AI images** if none available
    - View real-time processing status and logs
-   - System performs brand compliance checks after generation
    - Navigate to Downloads tab to access generated assets
-4. **View Results**:
+5. **View Results**:
    - Browse generated creatives by campaign
    - Download individual assets or view metrics
 
@@ -118,9 +130,38 @@ output/
 
 ## Asset Management
 
-### Using Existing Assets
+### Method 1: Upload Assets via API
 
-Place existing product images in the `assets/` directory:
+Upload product images through the web interface or API:
+
+**Via Web Interface:**
+- Navigate to the Upload tab in the frontend
+- Select product name and image file
+- Upload directly through the form
+
+**Via API:**
+```bash
+curl -X POST "http://localhost:8000/assets/upload" \
+  -F "product_name=EcoClean Detergent" \
+  -F "image=@path/to/your/image.jpg"
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Image uploaded successfully for product 'EcoClean Detergent'",
+  "file_info": {
+    "filename": "image.jpg",
+    "size": 124567,
+    "path": "assets/ecoClean_detergent/image.jpg"
+  }
+}
+```
+
+### Method 2: Manual Asset Placement
+
+Place existing product images directly in the `assets/` directory:
 
 ```
 assets/
@@ -131,9 +172,9 @@ assets/
     └── bottle_image.jpg
 ```
 
-The system will automatically use these assets instead of generating new ones.
+### Asset Discovery
 
-### Check Available Assets
+The system automatically uses existing assets instead of AI generation. Check available assets:
 
 ```bash
 curl "http://localhost:8000/assets/info"
@@ -149,6 +190,7 @@ curl "http://localhost:8000/assets/info"
 | `/campaigns` | GET | List all available campaign IDs |
 | `/campaign/{campaign_id}/images` | GET | List all generated images for a campaign |
 | `/campaign/{campaign_id}/download/{product_name}/{filename}` | GET | Download a specific campaign image |
+| `/assets/upload` | POST | **Upload product assets via form (multipart/form-data)** |
 | `/assets/info` | GET | Get information about available assets |
 | `/metrics` | GET | Get metrics for all campaigns |
 
@@ -172,7 +214,7 @@ curl "http://localhost:8000/assets/info"
 
 ### 2. **Asset Strategy**
 - **Primary**: Use existing assets from `/assets` folder
-- **Fallback**: Create placeholder images with product names
+- **Fallback**: **AI-generated images using Replicate's Flux model**
 
 ### 3. **Aspect Ratio Handling**
 - **1:1 (1080x1080)**: Instagram posts, Facebook
@@ -196,7 +238,26 @@ curl "http://localhost:8000/assets/info"
 - Background tasks for campaign generation
 - Non-blocking API responses
 - Real-time status tracking with detailed logs
-- Error handling and recovery
+- Comprehensive error handling and recovery
+
+## AI Integration
+
+### Content Moderation (Groq)
+- **Model**: Llama 3.1 8B Instant (free tier available)
+- **Capabilities**:
+  - Discriminatory content detection
+  - Illegal content screening
+  - False claims identification
+  - Excessive promotional language analysis
+- **Context-Aware**: Understands nuance vs. simple keyword matching
+- **API**: Requires free Groq API key from [console.groq.com](https://console.groq.com/)
+
+### Image Generation (Replicate)
+- **Model**: Flux Dev by Black Forest Labs
+- **Quality**: Professional product photography with studio lighting
+- **Customization**: Generates based on product name and description
+- **Fallback**: Only used when existing assets unavailable
+- **API**: Requires Replicate API token from [replicate.com](https://replicate.com/)
 
 ## Assumptions and Limitations
 
@@ -243,10 +304,10 @@ curl "http://localhost:8000/assets/info"
 ## Future Enhancements
 
 ### Critical Production Requirements
-- [ ] **GenAI Image Generation**: Replace placeholder Python image creation with actual GenAI models (DALL-E, Midjourney, Stability AI, etc.) for campaign-specific creative generation
+- [x] **GenAI Image Generation**: ✅ **COMPLETED** - Uses Replicate's Flux Dev model for professional image generation
 - [ ] **Data Persistence**: Docker volumes or database integration for data retention
-- [ ] **AI-Powered Compliance**: LLM-based content validation replacing static rules
-- [ ] **Computer Vision Compliance**: Image analysis for brand guideline validation
+- [x] **AI-Powered Compliance**: ✅ **COMPLETED** - Uses Groq's Llama 3.1 for intelligent content validation
+- [ ] **Computer Vision Compliance**: Image analysis for brand guideline validation (basic brand checks removed)
 - [ ] **Cloud Storage**: S3/GCS integration with persistent asset management
 - [ ] **Database Integration**: PostgreSQL/MongoDB for campaign and metrics storage
 
@@ -281,11 +342,22 @@ curl "http://localhost:8000/assets/info"
 
 5. **Port Conflicts**: Check that ports 3000 and 8000 are available
 
-6. **Mock Compliance Behavior**:
-   - **Issue**: Campaigns may pass/fail compliance checks unpredictably
-   - **Cause**: Static rule implementation for demonstration purposes
-   - **Note**: This is expected behavior in the current proof-of-concept
+6. **AI API Dependencies**:
+   - **Issue**: Content moderation or image generation may fail
+   - **Cause**: Missing or invalid API keys for Groq/Replicate
+   - **Solution**: Ensure valid API keys are configured in `backend/app.py`
 
+7. **Rate Limiting**:
+   - **Issue**: AI services may temporarily reject requests
+   - **Cause**: Free tier rate limits on Groq or Replicate
+   - **Solution**: Wait and retry, or upgrade to paid tiers
+
+### Debug Mode
+Set environment variable for detailed logging:
+```bash
+export LOG_LEVEL=DEBUG
+python app.py
+```
 
 ## Development
 
@@ -324,6 +396,13 @@ curl "http://localhost:8000/assets/info"
     ├── vite.config.js        # Build configuration
     └── nginx.conf            # Production web server config
 ```
+
+### Adding New Features
+
+1. **New Aspect Ratios**: Modify `aspect_ratios` dict in `creative_generator.py`
+2. **New GenAI Providers**: Extend `image_generator.py` with new APIs
+3. **Brand Compliance**: Add validation functions to pipeline
+4. **Custom Fonts**: Update text rendering in `creative_generator.py`
 
 ## License
 
