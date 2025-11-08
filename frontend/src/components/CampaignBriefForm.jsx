@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
-import { 
-  Container, 
-  Header, 
-  Form, 
-  FormField, 
-  Input, 
-  Textarea, 
-  Button, 
+import {
+  Container,
+  Header,
+  Form,
+  FormField,
+  Input,
+  Textarea,
+  Button,
   Box,
   SpaceBetween,
-  Alert
+  Alert,
+  FileUpload
 } from '@cloudscape-design/components';
-import { submitCampaignBrief } from '../services/api';
+import { submitCampaignBrief, uploadProductImage } from '../services/api';
 
 export default function CampaignBriefForm({ onCampaignSubmitted, onError }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     products: [
-      { name: '', description: '' },
-      { name: '', description: '' }
+      { name: '', description: '', image: [] },
+      { name: '', description: '', image: [] }
     ],
     target_region: '',
     target_audience: '',
@@ -34,7 +35,7 @@ export default function CampaignBriefForm({ onCampaignSubmitted, onError }) {
   const addProduct = () => {
     setFormData({
       ...formData,
-      products: [...formData.products, { name: '', description: '' }]
+      products: [...formData.products, { name: '', description: '', image: [] }]
     });
   };
 
@@ -48,7 +49,25 @@ export default function CampaignBriefForm({ onCampaignSubmitted, onError }) {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const result = await submitCampaignBrief(formData);
+      // First, upload any images for products that have them
+      for (const product of formData.products) {
+        if (product.image.length > 0 && product.name.trim()) {
+          try {
+            await uploadProductImage(product.name.trim(), product.image[0]);
+          } catch (uploadError) {
+            console.warn(`Failed to upload image for product ${product.name}:`, uploadError);
+            // Continue with campaign creation even if image upload fails
+          }
+        }
+      }
+      
+      // Then submit the campaign brief (without the image files)
+      const campaignData = {
+        ...formData,
+        products: formData.products.map(({ name, description }) => ({ name, description }))
+      };
+      
+      const result = await submitCampaignBrief(campaignData);
       onCampaignSubmitted(result);
     } catch (error) {
       onError(`Error: ${error.message}`);
@@ -116,6 +135,29 @@ export default function CampaignBriefForm({ onCampaignSubmitted, onError }) {
                       placeholder="Product description..."
                       rows={3}
                     />
+                    <FormField
+                      label="Product Image (Optional)"
+                      description="Upload an image for this product (JPG, PNG, WEBP, GIF, BMP)"
+                    >
+                      <FileUpload
+                        onChange={({ detail }) => updateProduct(index, 'image', detail.value)}
+                        value={product.image}
+                        i18nStrings={{
+                          uploadButtonText: e => e ? "Choose files" : "Choose file",
+                          dropzoneText: e => e ? "Drop files to upload" : "Drop file to upload",
+                          removeFileAriaLabel: e => `Remove file ${e + 1}`,
+                          limitShowFewer: "Show fewer files",
+                          limitShowMore: "Show more files",
+                          errorIconAriaLabel: "Error"
+                        }}
+                        showFileLastModified
+                        showFileSize
+                        showFileThumbnail
+                        tokenLimit={1}
+                        accept="image/*"
+                        disabled={loading}
+                      />
+                    </FormField>
                   </SpaceBetween>
                 </Box>
               ))}

@@ -62,3 +62,22 @@ export const getCampaignImages = async (campaignId) => {
 export const downloadCampaignImage = (campaignId, productName, filename) => {
   return `${API_BASE}/campaign/${campaignId}/download/${productName}/${filename}`;
 };
+
+// Image upload
+export const uploadProductImage = async (productName, imageFile) => {
+  const formData = new FormData();
+  formData.append('product_name', productName);
+  formData.append('image', imageFile);
+
+  const response = await fetch(`${API_BASE}/assets/upload`, {
+    method: 'POST',
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(errorData.detail || 'Failed to upload image');
+  }
+  
+  return response.json();
+};

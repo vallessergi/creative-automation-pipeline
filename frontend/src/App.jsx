@@ -9,12 +9,12 @@ import {
   Container,
   Tabs
 } from '@cloudscape-design/components';
-import { CampaignBriefForm, CampaignResults, DownloadsPage, MetricsPage } from './components';
+import { CampaignBriefForm, CampaignResults, DownloadsPage, MetricsPage, UploadForm } from './components';
 
 export default function App() {
   const [currentCampaignId, setCurrentCampaignId] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState('upload');
 
   const addNotification = (message, type = 'success') => {
     const id = Date.now().toString();
@@ -36,15 +36,25 @@ export default function App() {
 
   const tabs = [
     {
+      id: 'upload',
+      label: 'Upload Assets',
+      content: (
+        <UploadForm
+          onError={handleError}
+          onSuccess={(message) => addNotification(message, 'success')}
+        />
+      )
+    },
+    {
       id: 'create',
       label: 'Create Campaign',
       content: (
         <SpaceBetween direction="vertical" size="l">
-          <CampaignBriefForm 
+          <CampaignBriefForm
             onCampaignSubmitted={handleCampaignSubmitted}
             onError={handleError}
           />
-          <CampaignResults 
+          <CampaignResults
             campaignId={currentCampaignId}
             onError={handleError}
           />
