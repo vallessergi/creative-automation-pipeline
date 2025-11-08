@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Dict
 from loguru import logger
+import shutil
+from fastapi import UploadFile
 
 class AssetManager:
     def __init__(self, assets_dir: str = "assets", output_dir: str = "output"):
@@ -52,3 +54,55 @@ class AssetManager:
         
         return info
     
+    def save_uploaded_image(self, product_name: str, upload_file: UploadFile) -> Dict:
+        """Save an uploaded image file to the product's asset directory"""
+        # Create product directory
+        product_dir = self.assets_dir / product_name.lower().replace(" ", "_")
+        product_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Validate file type by extension
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}
+        file_extension = Path(upload_file.filename).suffix.lower()
+        
+        if file_extension not in allowed_extensions:
+            raise ValueError(f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}")
+        
+        # Validate MIME type
+        allowed_mime_types = {
+            'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+            'image/gif', 'image/bmp', 'image/x-ms-bmp'
+        }
+        
+        if upload_file.content_type and upload_file.content_type not in allowed_mime_types:
+            raise ValueError(f"Invalid file type. Expected image file, got {upload_file.content_type}")
+        
+        # Generate safe filename
+        safe_filename = upload_file.filename.replace(" ", "_")
+        file_path = product_dir / safe_filename
+        
+        # Handle filename conflicts by adding a number
+        counter = 1
+        original_stem = file_path.stem
+        while file_path.exists():
+            file_path = product_dir / f"{original_stem}_{counter}{file_extension}"
+            counter += 1
+        
+        # Save the file
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(upload_file.file, buffer)
+            
+            file_size = file_path.stat().st_size
+            logger.info(f"Saved uploaded image: {file_path} ({file_size} bytes)")
+            
+            return {
+                "success": True,
+                "filename": file_path.name,
+                "path": str(file_path),
+                "size": file_size,
+                "product_directory": str(product_dir)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to save uploaded file: {str(e)}")
+            raise ValueError(f"Failed to save file: {str(e)}")

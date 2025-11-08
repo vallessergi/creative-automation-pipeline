@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -113,6 +113,45 @@ async def get_campaign_result(campaign_id: str):
     if campaign_id not in campaign_results:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return campaign_results[campaign_id]
+
+@app.post("/assets/upload")
+async def upload_product_image(
+    product_name: str = Form(..., description="Name of the product"),
+    image: UploadFile = File(..., description="Image file to upload")
+):
+    """Upload an image for a product to be stored in assets/product_name/"""
+    try:
+        # Validate product name
+        if not product_name.strip():
+            raise HTTPException(status_code=400, detail="Product name cannot be empty")
+        
+        # Validate file
+        if not image.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Save the uploaded image
+        result = asset_manager.save_uploaded_image(product_name, image)
+        
+        logger.info(f"Successfully uploaded image for product '{product_name}': {result['filename']}")
+        
+        return {
+            "status": "success",
+            "message": f"Image uploaded successfully for product '{product_name}'",
+            "product_name": product_name,
+            "file_info": {
+                "filename": result["filename"],
+                "size": result["size"],
+                "path": result["path"]
+            },
+            "asset_directory": result["product_directory"]
+        }
+        
+    except ValueError as e:
+        logger.error(f"Upload validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during file upload")
 
 @app.post("/generate-campaign")
 async def generate_campaign(brief: CampaignBrief, background_tasks: BackgroundTasks):
