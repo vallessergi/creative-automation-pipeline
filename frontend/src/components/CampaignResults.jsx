@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Header, 
-  SpaceBetween, 
-  Badge, 
+import {
+  Container,
+  Header,
+  SpaceBetween,
+  Badge,
   Box,
   StatusIndicator,
   ProgressBar,
   ExpandableSection,
-  Alert
+  Alert,
+  Spinner
 } from '@cloudscape-design/components';
 import { getCampaignStatus } from '../services/api';
 
@@ -79,10 +80,22 @@ export default function CampaignResults({ campaignId, onError }) {
       }
     >
       <SpaceBetween direction="vertical" size="m">
+        {/* Loading Spinner */}
+        {loading && (
+          <Box textAlign="center" padding="l">
+            <SpaceBetween direction="vertical" size="s">
+              <Spinner size="large" />
+              <Box variant="p" color="text-body-secondary">
+                {campaignData?.status === 'processing' ? 'Updating campaign status...' : 'Loading campaign results...'}
+              </Box>
+            </SpaceBetween>
+          </Box>
+        )}
+
         {/* Progress */}
         {campaignData && (
           <Box>
-            <ProgressBar 
+            <ProgressBar
               value={getProgress(campaignData.status)}
               description={campaignData.status === 'processing' ? 'Generating creatives...' : ''}
               variant={campaignData.status === 'failed' ? 'error' : 'success'}
