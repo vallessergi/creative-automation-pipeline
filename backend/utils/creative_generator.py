@@ -9,39 +9,8 @@ class CreativeGenerator:
     def __init__(self, image_generator: ImageGenerator, asset_manager: AssetManager):
         self.image_generator = image_generator
         self.asset_manager = asset_manager
-        self.aspect_ratios = {
-            "1:1": (1080, 1080), 
-            "9:16": (1080, 1920),
-            "16:9": (1920, 1080)
-        }
-    
-    def resize_image_to_aspect_ratio(self, image: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
-        """Resize image to target aspect ratio while maintaining quality"""
-        # Calculate the aspect ratios
-        original_ratio = image.width / image.height
-        target_ratio = target_size[0] / target_size[1]
-        
-        if original_ratio > target_ratio:
-            # Image is wider than target, fit by height
-            new_height = target_size[1]
-            new_width = int(new_height * original_ratio)
-        else:
-            # Image is taller than target, fit by width
-            new_width = target_size[0]
-            new_height = int(new_width / original_ratio)
-        
-        # Resize image
-        resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-        
-        # Create new image with target size and center the resized image
-        final_image = Image.new("RGB", target_size, (255, 255, 255))
-        
-        # Calculate position to center the image
-        x = (target_size[0] - new_width) // 2
-        y = (target_size[1] - new_height) // 2
-        
-        final_image.paste(resized, (x, y))
-        return final_image
+        self.aspect_ratios = ["1:1", "9:16", "16:9"]
+
     
     def add_text_overlay(self,
                         image: Image.Image,
@@ -157,18 +126,16 @@ class CreativeGenerator:
                 logger.error(f"Failed to generate asset for {product_name}")
                 return results
         
-        # Generate creatives for each aspect ratio using AI img2img model
-        # Get the base image path for img2img generation
+
         if existing_assets and len(existing_assets) > 0:
             base_image_path = existing_assets[0]
         else:
             base_image_path = str(product_dir / "product_1.jpg")
         
-        for ratio_name, target_size in self.aspect_ratios.items():
+        for ratio_name in self.aspect_ratios:
             try:
-                # Generate variant using img2img model with target aspect ratio
                 logger.info(f"Generating {ratio_name} variant using img2img model")
-                img_prompt = f"Professional product photography of {product_name}, {product_description}, high quality, clean background, studio lighting"
+                img_prompt = f"Professional product photography of {product_name}, {product_description}, high quality, following the mood of product description"
                 
                 variant_image_url = self.image_generator.generate_img2img_variant(
                     input_image_path=base_image_path,
@@ -176,16 +143,13 @@ class CreativeGenerator:
                     prompt=img_prompt
                 )
                 
-                # Download the variant image
                 temp_variant_path = output_dir / f"temp_variant_{ratio_name.replace(':', 'x')}.jpg"
                 if self.image_generator.download_image_from_url(variant_image_url, temp_variant_path):
-                    # Load the downloaded variant image
                     variant_image = Image.open(temp_variant_path)
                     
-                    # Add text overlay (unchanged - still using Python)
+                    # Add text overlay
                     final_creative = self.add_text_overlay(variant_image, campaign_message, product_name)
                     
-                    # Save final creative
                     filename = f"{product_name.lower().replace(' ', '_')}_{ratio_name.replace(':', 'x')}.jpg"
                     output_path = output_dir / filename
                     final_creative.save(output_path, quality=95)
