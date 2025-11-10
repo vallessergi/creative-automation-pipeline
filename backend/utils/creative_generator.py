@@ -10,9 +10,9 @@ class CreativeGenerator:
         self.image_generator = image_generator
         self.asset_manager = asset_manager
         self.aspect_ratios = {
-            "1:1": (1080, 1080),      # Square - Instagram posts
-            "9:16": (1080, 1920),     # Portrait - Instagram stories, TikTok
-            "16:9": (1920, 1080)      # Landscape - YouTube, Facebook
+            "1:1": (1080, 1080), 
+            "9:16": (1080, 1920),
+            "16:9": (1920, 1080)
         }
     
     def resize_image_to_aspect_ratio(self, image: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
@@ -136,22 +136,25 @@ class CreativeGenerator:
                 logger.error(f"Failed to load existing asset: {e}")
                 base_image = None
         else:
-            # No existing assets - generate a set of AI images first
-            logger.info(f"No assets found for {product_name}, generating asset set")
-            success = self.image_generator.generate_product_asset_set(product_name, product_description)
+            # No existing assets - generate a single AI image
+            logger.info(f"No assets found for {product_name}, generating single asset")
+            # Create product asset directory
+            product_dir = Path("assets") / product_name.lower().replace(" ", "_")
+            product_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate a single AI image
+            image_path = product_dir / "product_1.jpg"
+            success = self.image_generator.generate_product_image(product_name, product_description, "", image_path)
             
             if success:
-                # Now check for the newly created assets
-                new_assets = self.asset_manager.check_existing_assets(product_name)
-                
-                if new_assets:
-                    logger.info(f"Using newly generated asset: {new_assets[0]}")
-                    base_image = Image.open(new_assets[0])
-                else:
-                    logger.error(f"Failed to access newly created assets for {product_name}")
+                logger.info(f"Using newly generated asset: {image_path}")
+                try:
+                    base_image = Image.open(image_path)
+                except Exception as e:
+                    logger.error(f"Failed to load newly created asset: {e}")
                     return results
             else:
-                logger.error(f"Failed to generate asset set for {product_name}")
+                logger.error(f"Failed to generate asset for {product_name}")
                 return results
         
         # Generate creatives for each aspect ratio using code-based text overlays
