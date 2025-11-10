@@ -4,6 +4,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Dict
 import uuid
+import asyncio
+import concurrent.futures
 from pathlib import Path
 from loguru import logger
 from utils import AssetManager, CreativeGenerator, MetricsManager, ContentModerator, ImageGenerator
@@ -33,6 +35,9 @@ creative_generator = CreativeGenerator(image_generator=image_generator, asset_ma
 
 # Global storage for campaign results
 campaign_results: Dict[str, dict] = {}
+
+# Thread pool for background processing
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
 class Product(BaseModel):
@@ -118,7 +123,9 @@ async def get_campaign_result(campaign_id: str):
     """Get specific campaign result"""
     if campaign_id not in campaign_results:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    return campaign_results[campaign_id]
+    
+    # Create a clean copy to avoid any reference issues during background processing
+    return campaign_results[campaign_id].copy()
 
 @app.post("/assets/upload")
 async def upload_product_image(
@@ -158,34 +165,50 @@ async def upload_product_image(
 
 @app.post("/generate-campaign")
 async def generate_campaign(brief: CampaignBrief, background_tasks: BackgroundTasks):
-    """Generate creative campaign from JSON brief"""
+    """Generate creative campaign from JSON brief - returns immediately"""
     
+    # Quick validation
     if len(brief.products) < 2:
         raise HTTPException(status_code=400, detail="At least 2 products are required")
     
+    # Generate campaign ID immediately
     campaign_id = str(uuid.uuid4())[:8]
     
-    logger.info(f"Processing campaign {campaign_id} for {len(brief.products)} products")
+    logger.info(f"Campaign {campaign_id} accepted for processing with {len(brief.products)} products")
     
+    # Initialize campaign status immediately
     campaign_results[campaign_id] = {
         "campaign_id": campaign_id,
         "status": "processing",
         "brief": brief.dict(),
         "creatives": {},
-        "logs": [f"Campaign {campaign_id} started"]
+        "logs": [f"Campaign {campaign_id} started and queued for processing"]
     }
     
-    # Add background task to process the campaign
-    background_tasks.add_task(process_campaign_async, campaign_id, brief)
+    # Add background task to process the campaign asynchronously in thread pool
+    background_tasks.add_task(process_campaign_wrapper, campaign_id, brief)
     
+    # Return immediately with campaign ID
     return {
         "status": "accepted",
         "campaign_id": campaign_id,
-        "message": f"Campaign {campaign_id} is being processed"
+        "message": f"Campaign {campaign_id} has been queued for processing. Use the campaign ID to check status."
     }
 
-async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
-    """Background task to process campaign and generate all creatives"""
+async def process_campaign_wrapper(campaign_id: str, brief: CampaignBrief):
+    """Wrapper to run campaign processing in thread pool"""
+    loop = asyncio.get_event_loop()
+    try:
+        # Run the synchronous processing in a separate thread
+        await loop.run_in_executor(executor, process_campaign_sync, campaign_id, brief)
+    except Exception as e:
+        logger.error(f"Campaign wrapper error {campaign_id}: {str(e)}")
+        if campaign_id in campaign_results:
+            campaign_results[campaign_id]["status"] = "failed"
+            campaign_results[campaign_id]["logs"].append(f"System error: {str(e)}")
+
+def process_campaign_sync(campaign_id: str, brief: CampaignBrief):
+    """Synchronous background task to process campaign and generate all creatives"""
     try:
         result = campaign_results[campaign_id]
         result["logs"].append("Starting content compliance check")
@@ -264,17 +287,19 @@ async def process_campaign_async(campaign_id: str, brief: CampaignBrief):
         logger.info(f"Campaign {campaign_id} completed successfully")
         
     except Exception as e:
-        result["status"] = "failed"
-        result["logs"].append(f"Error: {str(e)}")
-        
-        # Save failed campaign metrics
-        metrics_manager.save_campaign_metrics(
-            campaign_id=campaign_id,
-            campaign_brief=brief.dict(),
-            final_status="failed_technical",
-            product_metrics=result.get("creatives", {}),
-            reason=f"Technical error during campaign processing: {str(e)}"
-        )
+        if campaign_id in campaign_results:
+            result = campaign_results[campaign_id]
+            result["status"] = "failed"
+            result["logs"].append(f"Error: {str(e)}")
+            
+            # Save failed campaign metrics
+            metrics_manager.save_campaign_metrics(
+                campaign_id=campaign_id,
+                campaign_brief=brief.dict(),
+                final_status="failed_technical",
+                product_metrics=result.get("creatives", {}),
+                reason=f"Technical error during campaign processing: {str(e)}"
+            )
         
         logger.error(f"Campaign {campaign_id} failed: {str(e)}")
 
