@@ -8,9 +8,9 @@ This system automates the creation of social media creatives by:
 - Providing a modern web interface for campaign management
 - Accepting campaign briefs through forms or JSON API
 - **AI-powered content compliance validation** using Groq's Llama 3.1 model
-- **GenAI image generation** using Replicate's Flux model when assets are unavailable
+- **AI-powered hero image generation** using Replicate's Flux model when assets are unavailable
 - Reusing existing assets when available
-- Generating multiple aspect ratios (1:1, 9:16, 16:9)
+- Generating multiple aspect ratios (1:1, 9:16, 16:9) with img2img enhancement
 - Adding campaign message overlays with responsive text
 - Organizing outputs by product and aspect ratio
 - Tracking campaign metrics and performance
@@ -57,7 +57,8 @@ The application will be available at:
 4. **Submit and Monitor**:
    - Click "Generate Campaign"
    - **AI performs intelligent content compliance validation**
-   - System reuses uploaded assets or **generates AI images** if none available
+   - System reuses uploaded assets or **generates single hero image** if none available
+   - **AI img2img model enhances assets** while maintaining aspect ratios
    - View real-time processing status and logs
    - Navigate to Downloads tab to access generated assets
 5. **View Results**:
@@ -127,6 +128,39 @@ output/
         ├── freshair_fabric_softener_9x16.jpg
         └── freshair_fabric_softener_16x9.jpg
 ```
+**Note**: All variants maintain the hero image's original aspect ratio due to img2img model limitations.
+
+## Campaign Asset Generation Workflow
+
+### AI-Powered Asset Pipeline
+
+The system uses a sophisticated AI pipeline to generate campaign assets:
+
+1. **Hero Image Acquisition**:
+   - **Existing Assets**: Uses uploaded product images as hero images
+   - **AI Generation**: Creates single hero image using Flux Dev model if no assets available
+
+2. **Aspect Ratio Variants via Img2Img**:
+   - **Input**: Single hero image (any aspect ratio)
+   - **Process**: AI img2img model enhances image quality while maintaining same aspect ratio
+   - **Models**: Uses `bxclib2/flux_img2img` for visual enhancement
+   - **Limitation**: **Maintains hero image's original aspect ratio** (does not change dimensions)
+
+3. **Text Overlay Application**:
+   - **Python Rendering**: Responsive text overlays on each variant
+   - **Design**: Semi-transparent backgrounds for optimal readability
+   - **Content**: Product name and campaign message positioning
+
+### Benefits of Img2Img Approach
+- **Visual Enhancement**: AI improves image quality and style consistency
+- **Intelligent Processing**: Better than simple file copying
+- **Efficiency**: Single hero → enhanced campaign assets
+- **Quality**: Professional AI enhancement of source images
+
+### Img2Img Limitation
+- **⚠️ Aspect Ratio Constraint**: The img2img model maintains the **same aspect ratio as the hero image**
+- **Impact**: All generated variants (1:1, 9:16, 16:9) will have the hero image's original dimensions
+- **Workaround**: Use hero images with desired aspect ratios, or combine with text-to-image generation
 
 ## Asset Management
 
@@ -200,8 +234,8 @@ curl "http://localhost:8000/assets/info"
 **Backend (FastAPI):**
 - **`app.py`**: FastAPI server orchestrating the pipeline
 - **`asset_manager.py`**: Handles file organization and asset discovery
-- **`creative_generator.py`**: Combines images, resizing, and text overlays
-- **`image_generator.py`**: AI-powered image generation (Replicate Flux)
+- **`creative_generator.py`**: AI-powered campaign asset generation using img2img model
+- **`image_generator.py`**: AI-powered image generation
 - **`content_moderator.py`**: AI-powered content validation (Groq Llama 3.1)
 - **`metrics_manager.py`**: Campaign performance tracking
 
@@ -213,13 +247,17 @@ curl "http://localhost:8000/assets/info"
 - **`MetricsPage.jsx`**: Campaign analytics and metrics
 
 ### 2. **Asset Strategy**
-- **Primary**: Use existing assets from `/assets` folder
-- **Fallback**: **AI-generated images using Replicate's Flux model**
+- **Primary**: Use existing assets from `/assets` folder as hero images
+- **Fallback**: **Single AI-generated hero image using Replicate's Flux model**
+- **Campaign Assets**: **AI img2img model enhances hero images** (maintains aspect ratios)
+- **Text Overlays**: Python-based text rendering with responsive design
 
-### 3. **Aspect Ratio Handling**
-- **1:1 (1080x1080)**: Instagram posts, Facebook
-- **9:16 (1080x1920)**: Instagram stories, TikTok
-- **16:9 (1920x1080)**: YouTube, Facebook covers
+### 3. **AI-Enhanced Asset Generation**
+- **Hero Image**: Single base image (existing asset or AI-generated)
+- **Img2Img Enhancement**: AI model enhances image quality **maintaining original aspect ratio**
+  - **⚠️ Limitation**: All variants have same aspect ratio as hero image
+  - **Quality**: AI improves visual appearance and consistency
+- **Target Formats**: 1:1 (Instagram/Facebook), 9:16 (Stories/TikTok), 16:9 (YouTube/Covers)
 
 ### 4. **Text Overlay Design**
 - Semi-transparent dark overlay at bottom for readability
@@ -253,12 +291,21 @@ curl "http://localhost:8000/assets/info"
 - **Context-Aware**: Understands nuance vs. simple keyword matching
 - **API**: Requires free Groq API key from [console.groq.com](https://console.groq.com/)
 
-### Image Generation (Replicate)
+### Hero Image Generation (Replicate Flux)
 - **Model**: Flux Dev by Black Forest Labs
 - **Quality**: Professional product photography with studio lighting
 - **Customization**: Generates based on product name and description
-- **Fallback**: Only used when existing assets unavailable
+- **Usage**: Only when existing assets unavailable (single image, not multiple)
 - **API**: Requires Replicate API token from [replicate.com](https://replicate.com/)
+
+### Campaign Asset Generation (Img2Img)
+- **Model**: bxclib2/flux_img2img via Replicate
+- **Process**: Enhances hero images while maintaining original aspect ratio
+- **Quality**: AI-powered visual enhancement and style consistency
+- **Parameters**: Configurable denoising (0.25), steps (20), sampling methods
+- **⚠️ Limitation**: **Does not change aspect ratios** - maintains hero image dimensions
+- **Efficiency**: Single hero image → enhanced campaign assets
+- **API**: Uses same Replicate API token
 
 ## Assumptions and Limitations
 
@@ -280,11 +327,14 @@ curl "http://localhost:8000/assets/info"
 2. **Compliance System (Mock Implementation)**:
    - **No Brand Intelligence**: Brand compliance checks are in place
 
-3. **Image Generation**:
-   - **AI-Powered**: Uses Replicate's Flux Dev model for professional-quality image generation
-   - **Professional Quality**: Generates product photography with studio lighting and clean backgrounds
-   - **Generation Time**: AI image creation takes 10-30 seconds per image
-   - Asset reuse prioritized over generation for efficiency and cost optimization
+3. **Image Generation & Campaign Assets**:
+   - **Hero Images**: Single AI-generated image using Replicate's Flux Dev model (when assets unavailable)
+   - **Campaign Assets**: AI img2img model enhances images while maintaining hero's aspect ratio
+   - **⚠️ Aspect Ratio Limitation**: Img2img model cannot change aspect ratios - all variants match hero dimensions
+   - **Professional Quality**: Both hero and enhanced variants produce studio-quality results
+   - **Generation Time**: Hero image 10-30 seconds, each img2img enhancement 10-120 seconds
+   - **Efficiency**: Single hero → enhanced campaign assets using AI processing
+   - Asset reuse prioritized over generation for cost and speed optimization
 
 4. **Text Rendering**:
    - Basic font support (system fonts only)
@@ -300,26 +350,15 @@ curl "http://localhost:8000/assets/info"
 ## Future Enhancements
 
 ### Critical Production Requirements
-- [x] **GenAI Image Generation**: ✅ **COMPLETED** - Uses Replicate's Flux Dev model for professional image generation
+- [x] **GenAI Hero Image Generation**: ✅ **COMPLETED** - Uses Replicate's Flux Dev model for professional image generation
+- [x] **AI Campaign Asset Generation**: ✅ **COMPLETED** - Uses img2img model for visual enhancement (maintains aspect ratios)
 - [ ] **Data Persistence**: Docker volumes or database integration for data retention
 - [x] **AI-Powered Compliance**: ✅ **COMPLETED** - Uses Groq's Llama 3.1 for intelligent content validation
 - [ ] **Computer Vision Compliance**: Image analysis for brand guideline validation (basic brand checks removed)
 - [ ] **Cloud Storage**: S3/GCS integration with persistent asset management
 - [ ] **Database Integration**: PostgreSQL/MongoDB for campaign and metrics storage
 
-### Additional Planned Features
-- [ ] **Multi-language**: Localized campaign messages
-- [ ] **Batch Processing**: Multiple campaigns simultaneously
-- [ ] **Custom Fonts**: Brand typography support
-- [ ] **A/B Testing**: Multiple creative variations
-- [ ] **Advanced Brand Intelligence**: Logo detection, color palette validation
-- [ ] **Legal Content Analysis**: Context-aware content screening
 
-### Integration Options
-- **CMS Integration**: Connect to content management systems
-- **Social Media APIs**: Direct posting to platforms
-- **Analytics**: Performance tracking and optimization
-- **Approval Workflows**: Review and approval processes
 
 ## Troubleshooting
 
@@ -334,26 +373,19 @@ curl "http://localhost:8000/assets/info"
 
 3. **Font Issues**: System falls back to default fonts if custom fonts unavailable
 
-4. **Permission Errors**: Ensure write permissions for `backend/assets/` and `backend/output/` directories
 
-5. **Port Conflicts**: Check that ports 3000 and 8000 are available
+4. **Port Conflicts**: Check that ports 3000 and 8000 are available
 
-6. **AI API Dependencies**:
+5. **AI API Dependencies**:
    - **Issue**: Content moderation or image generation may fail
    - **Cause**: Missing or invalid API keys for Groq/Replicate
    - **Solution**: Ensure valid API keys are configured in `backend/app.py`
 
-7. **Rate Limiting**:
+6. **Rate Limiting**:
    - **Issue**: AI services may temporarily reject requests
    - **Cause**: Free tier rate limits on Groq or Replicate
    - **Solution**: Wait and retry, or upgrade to paid tiers
 
-### Debug Mode
-Set environment variable for detailed logging:
-```bash
-export LOG_LEVEL=DEBUG
-python app.py
-```
 
 ## Development
 
@@ -370,8 +402,8 @@ python app.py
 │   ├── requirements.txt       # Python dependencies
 │   ├── utils/                 # Modular utilities
 │   │   ├── asset_manager.py   # Asset discovery and organization
-│   │   ├── creative_generator.py # Image processing and overlays
-│   │   ├── image_generator.py # Placeholder image creation
+│   │   ├── creative_generator.py # AI img2img campaign asset generation
+│   │   ├── image_generator.py # AI image generation
 │   │   ├── content_moderator.py # Compliance validation
 │   │   └── metrics_manager.py # Performance tracking
 │   ├── assets/                # Input assets (optional)
@@ -392,13 +424,6 @@ python app.py
     ├── vite.config.js        # Build configuration
     └── nginx.conf            # Production web server config
 ```
-
-### Adding New Features
-
-1. **New Aspect Ratios**: Modify `aspect_ratios` dict in `creative_generator.py`
-2. **New GenAI Providers**: Extend `image_generator.py` with new APIs
-3. **Brand Compliance**: Add validation functions to pipeline
-4. **Custom Fonts**: Update text rendering in `creative_generator.py`
 
 ## License
 
