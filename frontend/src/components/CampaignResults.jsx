@@ -19,12 +19,16 @@ export default function CampaignResults({ campaignId, onError }) {
 
   useEffect(() => {
     if (campaignId) {
+      // Check status immediately
       checkCampaignStatus();
-      // Poll for updates if still processing
+    }
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (campaignId && campaignData?.status === 'processing') {
+      // Set up polling only when campaign is processing
       const interval = setInterval(() => {
-        if (campaignData?.status === 'processing') {
-          checkCampaignStatus();
-        }
+        checkCampaignStatus();
       }, 3000);
 
       return () => clearInterval(interval);

@@ -61,16 +61,22 @@ export default function CampaignBriefForm({ onCampaignSubmitted, onError }) {
         }
       }
       
-      // Then submit the campaign brief (without the image files)
+      // Then submit the campaign brief (without the image files) - this should return immediately
       const campaignData = {
         ...formData,
         products: formData.products.map(({ name, description }) => ({ name, description }))
       };
       
       const result = await submitCampaignBrief(campaignData);
-      onCampaignSubmitted(result);
+      
+      // The backend should return immediately with campaign_id and status "accepted"
+      if (result.status === 'accepted' && result.campaign_id) {
+        onCampaignSubmitted(result);
+      } else {
+        throw new Error('Unexpected response from server');
+      }
     } catch (error) {
-      onError(`Error: ${error.message}`);
+      onError(`Error submitting campaign: ${error.message}`);
     } finally {
       setLoading(false);
     }
