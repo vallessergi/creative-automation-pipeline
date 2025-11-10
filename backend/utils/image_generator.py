@@ -59,34 +59,33 @@ class ImageGenerator:
                                 input_image_path: str,
                                 aspect_ratio: str = "1:1",
                                 prompt: str = "high quality product photography, professional lighting, clean background") -> str:
-        """Generate image variant using img2img model with specific aspect ratio"""
+        """Generate image variant using img2img model"""
         try:
-            logger.info(f"Generating img2img variant with aspect ratio {aspect_ratio}")
+            logger.info(f"Generating img2img variant (maintains original image dimensions)")
             
-            # Open and prepare input image
             with open(input_image_path, "rb") as image_file:
                 output = self.replicate_client.run(
                     "bxclib2/flux_img2img:0ce45202d83c6bd379dfe58f4c0c41e6cadf93ebbd9d938cc63cc0f2fcb729a5",
                     input={
+                        "seed": 0,
                         "image": image_file,
-                        "prompt": prompt,
-                        "aspect_ratio": aspect_ratio,
-                        "output_format": "jpg",
-                        "output_quality": 90,
-                        "strength": 0.3,  # Lower strength to preserve original image better
-                        "num_inference_steps": 28
+                        "steps": 20,
+                        "denoising": 0.25,
+                        "scheduler": "simple",
+                        "sampler_name": "euler",
+                        "positive_prompt": prompt
                     }
                 )
             
             image_url = output if isinstance(output, str) else output[0] if isinstance(output, list) else None
             if image_url:
-                logger.info(f"Generated img2img variant with aspect ratio {aspect_ratio}")
+                logger.info(f"Generated img2img variant (same dimensions as input)")
                 return image_url
             else:
-                raise ValueError(f"No valid image URL returned from img2img model for aspect ratio {aspect_ratio}")
+                raise ValueError(f"No valid image URL returned from img2img model")
                 
         except Exception as e:
-            logger.error(f"Img2img generation failed for aspect ratio {aspect_ratio}: {str(e)}")
+            logger.error(f"Img2img generation failed: {str(e)}")
             raise
     
     def generate_product_image(self,
