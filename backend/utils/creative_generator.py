@@ -136,13 +136,13 @@ class CreativeGenerator:
                 logger.error(f"Failed to load existing asset: {e}")
                 base_image = None
         else:
-            # No existing assets - generate a single AI image
+            # No existing assets - generate with AI image
             logger.info(f"No assets found for {product_name}, generating single asset")
             # Create product asset directory
             product_dir = Path("assets") / product_name.lower().replace(" ", "_")
             product_dir.mkdir(parents=True, exist_ok=True)
             
-            # Generate a single AI image
+            # Generate a AI image
             image_path = product_dir / "product_1.jpg"
             success = self.image_generator.generate_product_image(product_name, product_description, "", image_path)
             
@@ -157,22 +157,46 @@ class CreativeGenerator:
                 logger.error(f"Failed to generate asset for {product_name}")
                 return results
         
-        # Generate creatives for each aspect ratio using code-based text overlays
+        # Generate creatives for each aspect ratio using AI img2img model
+        # Get the base image path for img2img generation
+        if existing_assets and len(existing_assets) > 0:
+            base_image_path = existing_assets[0]
+        else:
+            base_image_path = str(product_dir / "product_1.jpg")
+        
         for ratio_name, target_size in self.aspect_ratios.items():
             try:
-                # Resize to aspect ratio
-                resized_image = self.resize_image_to_aspect_ratio(base_image, target_size)
+                # Generate variant using img2img model with target aspect ratio
+                logger.info(f"Generating {ratio_name} variant using img2img model")
+                img_prompt = f"Professional product photography of {product_name}, {product_description}, high quality, clean background, studio lighting"
                 
-                # Add text overlay
-                final_creative = self.add_text_overlay(resized_image, campaign_message, product_name)
+                variant_image_url = self.image_generator.generate_img2img_variant(
+                    input_image_path=base_image_path,
+                    aspect_ratio=ratio_name,
+                    prompt=img_prompt
+                )
                 
-                # Save final creative
-                filename = f"{product_name.lower().replace(' ', '_')}_{ratio_name.replace(':', 'x')}.jpg"
-                output_path = output_dir / filename
-                final_creative.save(output_path, quality=95)
-                
-                results[ratio_name] = str(output_path)
-                logger.info(f"Generated creative: {output_path}")
+                # Download the variant image
+                temp_variant_path = output_dir / f"temp_variant_{ratio_name.replace(':', 'x')}.jpg"
+                if self.image_generator.download_image_from_url(variant_image_url, temp_variant_path):
+                    # Load the downloaded variant image
+                    variant_image = Image.open(temp_variant_path)
+                    
+                    # Add text overlay (unchanged - still using Python)
+                    final_creative = self.add_text_overlay(variant_image, campaign_message, product_name)
+                    
+                    # Save final creative
+                    filename = f"{product_name.lower().replace(' ', '_')}_{ratio_name.replace(':', 'x')}.jpg"
+                    output_path = output_dir / filename
+                    final_creative.save(output_path, quality=95)
+                    
+                    # Clean up temp file
+                    temp_variant_path.unlink()
+                    
+                    results[ratio_name] = str(output_path)
+                    logger.info(f"Generated creative using img2img: {output_path}")
+                else:
+                    logger.error(f"Failed to download img2img variant for {ratio_name}")
                 
             except Exception as e:
                 logger.error(f"Failed to generate {ratio_name} creative for {product_name}: {str(e)}")
